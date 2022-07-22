@@ -1,57 +1,16 @@
-(ns app
-  (:require [datascript.core :as d]
-            [hyperfiddle.photon :as p]
-            [hyperfiddle.photon-dom :as dom]
-            [hyperfiddle.photon-ui :as ui])
+(ns app (:require [hyperfiddle.photon :as p]
+                  [hyperfiddle.photon-dom :as dom]
+                  [hyperfiddle.photon-ui :as ui])
   #?(:cljs (:require-macros app)))
 
-(defonce !conn #?(:clj (d/create-conn {}) :cljs nil))
+(defonce !n #?(:clj (atom 0) :cljs nil)) ; server
+(p/def n (p/server (p/watch !n)))
 
-(p/defn TodoCreate []
-  (ui/input {:dom/placeholder    "Buy milk"
-             :dom/type           "text"
-             ::ui/keychord-event [#{"enter"}
-                                  (p/fn [js-event]
-                                    (when js-event
-                                      (let [dom-node (:target js-event)
-                                            value    (:value dom-node)]
-                                        (dom/oset! dom-node :value "")
-                                        (p/remote (d/transact! !conn [{:task/description value
-                                                                       :task/status      :active}]) nil))))]}))
-
-(p/defn TodoItem [e]
-  (let [id          (:db/id e)
-        status      (:task/status e)]
-    (p/remote
-      (ui/checkbox {:dom/id          id
-                    :dom/checked     (case status :active false, :done true)
-                    ::ui/input-event (p/fn [js-event]
-                                       (when js-event
-                                         (let [done? (-> js-event :target :checked)]
-                                           (p/remote (d/transact! !conn [{:db/id       (p/deduping id)
-                                                                          :task/status (if done? :done :active)}]) nil))))})
-      (dom/label {:dom/for id} (dom/text (str (p/remote (:task/description e))))))))
-
-(defn todo-count [db]
-  #?(:clj (count (d/q '[:find [?e ...] :in $ ?status :where [?e :task/status ?status]] db :active))))
-
-(p/defn Todo-list []
-  (let [db (p/watch !conn)]
-    (p/remote
-      (Readme.)
-      (dom/div {:dom/class "todo-list"}
-        (TodoCreate.)
-        (dom/div {:dom/class "todo-items"}
-          (p/for [id (p/remote (d/q '[:find [?e ...] :in $ :where [?e :task/status]] db))]
-            (p/remote (TodoItem. (d/entity db id) id))))
-        (dom/p {:dom/class "counter"}
-          (dom/span {:dom/class "count"} (dom/text (p/remote (todo-count db))))
-          (dom/text " items left"))))))
-
-(p/defn Readme []
-  (dom/h1 (dom/text "Multiplayer todo list in one file"))
-  (dom/ul
-    (dom/li (dom/text "Full stack webapp in one file"))
-    (dom/li (dom/text "Server side database"))
-    (dom/li (dom/text "Rich client rendering"))
-    (dom/li (dom/text "Collaborative — try multiple tabs"))))
+(p/defn App []
+ (p/client
+  (ui/button {::ui/click-event (p/fn [e] (p/server (swap! !n inc)))}
+   (dom/text "click me " (p/server n)))
+  (dom/p 
+   (if (p/server (odd? n))
+     (dom/text "client " (pr-str (type (p/server n))))
+     (dom/text "server " (p/server (pr-str (type n))))))))

@@ -6,5 +6,8 @@ CLJ_CONFIG = "/home/runner/.clojure"
 [languages.clojure]
 pattern = "**/*.clj*"
 
+[nix]
+channel = "stable-22_05"
+
 # [languages.clojure.languageServer]
 # start = ["clojure-lsp"]
